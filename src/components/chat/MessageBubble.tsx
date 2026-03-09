@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Check, CheckCheck, Reply, Trash2, SmilePlus } from "lucide-react";
+import { Check, CheckCheck, Reply, Trash2, SmilePlus, Pin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ReactionPicker } from "./ReactionPicker";
 import type { Tables } from "@/integrations/supabase/types";
@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   onReact: (emoji: string) => void;
   onReply: () => void;
   onDelete?: () => void;
+  onPin?: () => void;
   replyToMessage?: Tables<"messages"> | null;
   replyToSenderName?: string;
   currentUserId?: string;
@@ -29,6 +30,7 @@ export function MessageBubble({
   onReact,
   onReply,
   onDelete,
+  onPin,
   replyToMessage,
   replyToSenderName,
   currentUserId,
@@ -37,7 +39,6 @@ export function MessageBubble({
   const [showReactions, setShowReactions] = useState(false);
   const time = format(new Date(message.created_at), "HH:mm");
 
-  // Group reactions by emoji
   const groupedReactions = reactions.reduce<Record<string, { count: number; hasOwn: boolean }>>((acc, r) => {
     if (!acc[r.emoji]) acc[r.emoji] = { count: 0, hasOwn: false };
     acc[r.emoji].count++;
@@ -45,13 +46,15 @@ export function MessageBubble({
     return acc;
   }, {});
 
+  // Check if this is a voice message
+  const isVoice = message.content?.startsWith("🎤 Voice message");
+
   return (
     <div
       className={`group flex animate-fade-in ${isMine ? "justify-end" : "justify-start"} mb-1`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => { setShowActions(false); setShowReactions(false); }}
     >
-      {/* Sender avatar for group messages */}
       {senderName && (
         <Avatar className="mr-2 mt-5 h-6 w-6 shrink-0">
           <AvatarImage src={senderAvatar ?? undefined} />
@@ -62,7 +65,6 @@ export function MessageBubble({
       )}
 
       <div className="relative max-w-[70%]">
-        {/* Sender name label */}
         {senderName && (
           <p className="mb-0.5 pl-1 text-[11px] font-medium text-primary">{senderName}</p>
         )}
@@ -82,6 +84,15 @@ export function MessageBubble({
             >
               <Reply className="h-3.5 w-3.5" />
             </button>
+            {onPin && (
+              <button
+                onClick={onPin}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-primary"
+                title="Pin message"
+              >
+                <Pin className="h-3.5 w-3.5" />
+              </button>
+            )}
             {isMine && onDelete && (
               <button
                 onClick={onDelete}
@@ -93,14 +104,12 @@ export function MessageBubble({
           </div>
         )}
 
-        {/* Reaction picker */}
         {showReactions && (
           <div className={`absolute -top-10 ${isMine ? "right-0" : "left-0"} z-20`}>
             <ReactionPicker onSelect={(emoji) => { onReact(emoji); setShowReactions(false); }} />
           </div>
         )}
 
-        {/* Reply context */}
         {replyToMessage && (
           <div className={`mb-1 rounded-lg px-3 py-1.5 ${isMine ? "bg-chat-bubble-sent/20" : "bg-accent"} border-l-2 border-primary`}>
             <p className="text-[10px] font-semibold text-primary">{replyToSenderName || "Unknown"}</p>
@@ -117,13 +126,20 @@ export function MessageBubble({
               : "bg-chat-bubble-received text-chat-bubble-received-foreground rounded-bl-md"
           }`}
         >
-          {message.image_url && (
+          {message.image_url && !isVoice && (
             <img
               src={message.image_url}
               alt="Shared image"
               className="mb-1.5 max-h-56 rounded-xl object-cover"
               loading="lazy"
             />
+          )}
+
+          {/* Voice message player */}
+          {isVoice && message.image_url && (
+            <div className="mb-1.5">
+              <audio controls src={message.image_url} className="h-8 w-48" preload="metadata" />
+            </div>
           )}
 
           {message.content && (
@@ -144,7 +160,6 @@ export function MessageBubble({
           </div>
         </div>
 
-        {/* Reactions display */}
         {Object.keys(groupedReactions).length > 0 && (
           <div className={`mt-0.5 flex flex-wrap gap-1 ${isMine ? "justify-end" : "justify-start"}`}>
             {Object.entries(groupedReactions).map(([emoji, { count, hasOwn }]) => (

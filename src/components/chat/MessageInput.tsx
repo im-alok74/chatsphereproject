@@ -1,16 +1,20 @@
 import { useState, useRef } from "react";
-import { Send, Image as ImageIcon } from "lucide-react";
+import { Send, Image as ImageIcon, BarChart3, Clock } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
+import { VoiceRecorder } from "./VoiceRecorder";
 
 interface MessageInputProps {
+  chatId: string | null;
   onSendMessage: (content: string) => void;
   onSendImage: (file: File) => void;
   onTyping?: (isTyping: boolean) => void;
   replyTo?: { id: string; content: string | null; senderName: string } | null;
   onCancelReply?: () => void;
+  onOpenPoll?: () => void;
+  onOpenSchedule?: () => void;
 }
 
-export function MessageInput({ onSendMessage, onSendImage, onTyping, replyTo, onCancelReply }: MessageInputProps) {
+export function MessageInput({ chatId, onSendMessage, onSendImage, onTyping, replyTo, onCancelReply, onOpenPoll, onOpenSchedule }: MessageInputProps) {
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,6 +48,11 @@ export function MessageInput({ onSendMessage, onSendImage, onTyping, replyTo, on
 
   const handleEmojiSelect = (emoji: string) => {
     setText((prev) => prev + emoji);
+  };
+
+  // Allow SmartReplies to set text
+  const setTextFromOutside = (val: string) => {
+    setText(val);
   };
 
   return (
@@ -81,6 +90,29 @@ export function MessageInput({ onSendMessage, onSendImage, onTyping, replyTo, on
             <ImageIcon className="h-5 w-5" />
           </button>
           <EmojiPicker onSelect={handleEmojiSelect} />
+          {onOpenPoll && (
+            <button
+              type="button"
+              onClick={onOpenPoll}
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Create poll"
+            >
+              <BarChart3 className="h-5 w-5" />
+            </button>
+          )}
+          {onOpenSchedule && (
+            <button
+              type="button"
+              onClick={onOpenSchedule}
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Schedule message"
+            >
+              <Clock className="h-5 w-5" />
+            </button>
+          )}
+          {chatId && (
+            <VoiceRecorder chatId={chatId} onSent={() => {}} />
+          )}
         </div>
 
         {/* Text input */}
