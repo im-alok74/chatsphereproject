@@ -1,1 +1,4 @@
 project_id = "jqsluzhtyfyhbuqsfcvh"
+
+[functions.smart-replies]
+verify_jwt = false

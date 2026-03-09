@@ -8,12 +8,17 @@ import { MessageInput } from "./MessageInput";
 import { MessageSearch } from "./MessageSearch";
 import { TypingIndicator } from "./TypingIndicator";
 import { BillSplitDialog } from "./BillSplitDialog";
+import { PollDialog } from "./PollDialog";
+import { PinnedMessages } from "./PinnedMessages";
+import { ScheduleMessageDialog } from "./ScheduleMessageDialog";
+import { SmartReplies } from "./SmartReplies";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageCircle, Users, Receipt, Phone, Video, Search } from "lucide-react";
+import { MessageCircle, Users, Receipt, Phone, Video, Search, Pin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import type { ChatWithDetails } from "@/hooks/useChats";
 import chatSphereLogo from "@/assets/chatsphere-logo.png";
+import { toast } from "sonner";
 
 interface ChatWindowProps {
   chat: ChatWithDetails | null;
@@ -27,13 +32,14 @@ export function ChatWindow({ chat }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showBillSplit, setShowBillSplit] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showPoll, setShowPoll] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   const [replyTo, setReplyTo] = useState<{ id: string; content: string | null; senderName: string } | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
 
-  // Empty state
   if (!chat) {
     return (
       <div className="flex h-full flex-1 flex-col items-center justify-center bg-background">
@@ -66,7 +72,6 @@ export function ChatWindow({ chat }: ChatWindowProps) {
 
   const handleSendMessage = (content: string) => {
     if (replyTo) {
-      // Send with reply - we'll insert directly to include reply_to_id
       if (!chat?.id || !user) return;
       supabase.from("messages").insert({
         chat_id: chat.id,
@@ -93,10 +98,30 @@ export function ChatWindow({ chat }: ChatWindowProps) {
     });
   };
 
-  // Find reply-to messages
+  const handlePin = async (messageId: string) => {
+    if (!user) return;
+    const { error } = await supabase.from("pinned_messages" as any).insert({
+      chat_id: chat.id,
+      message_id: messageId,
+      pinned_by: user.id,
+    } as any);
+    if (error) {
+      toast.error("Failed to pin message");
+    } else {
+      toast.success("Message pinned!");
+    }
+  };
+
   const getReplyToMessage = (replyToId: string | null) => {
     if (!replyToId) return null;
     return messages.find((m) => m.id === replyToId) ?? null;
+  };
+
+  const scrollToMessage = (id: string) => {
+    const el = document.getElementById(`msg-${id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+    setTimeout(() => el?.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background"), 2000);
   };
 
   return (
@@ -134,7 +159,6 @@ export function ChatWindow({ chat }: ChatWindowProps) {
           </div>
         </div>
 
-        {/* Header actions */}
         <div className="flex gap-1">
           <button
             onClick={() => setShowSearch(!showSearch)}
@@ -165,15 +189,13 @@ export function ChatWindow({ chat }: ChatWindowProps) {
       {showSearch && (
         <MessageSearch
           chatId={chat.id}
-          onSelectMessage={(id) => {
-            const el = document.getElementById(`msg-${id}`);
-            el?.scrollIntoView({ behavior: "smooth", block: "center" });
-            el?.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
-            setTimeout(() => el?.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background"), 2000);
-          }}
+          onSelectMessage={scrollToMessage}
           onClose={() => setShowSearch(false)}
         />
       )}
+
+      {/* Pinned messages */}
+      <PinnedMessages chatId={chat.id} onGoToMessage={scrollToMessage} />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -209,6 +231,7 @@ export function ChatWindow({ chat }: ChatWindowProps) {
                     onReact={(emoji) => toggleReaction(msg.id, emoji)}
                     onReply={() => handleReply(msg)}
                     onDelete={isMine ? () => handleDelete(msg.id) : undefined}
+                    onPin={() => handlePin(msg.id)}
                     replyToMessage={replyToMsg}
                     replyToSenderName={
                       replyToMsg?.sender_id === user?.id
@@ -226,16 +249,26 @@ export function ChatWindow({ chat }: ChatWindowProps) {
         <div ref={bottomRef} />
       </div>
 
+      {/* Smart replies */}
+      <SmartReplies
+        messages={messages}
+        currentUserId={user?.id}
+        onSelect={handleSendMessage}
+      />
+
       {/* Message input */}
       <MessageInput
+        chatId={chat.id}
         onSendMessage={handleSendMessage}
         onSendImage={sendImage}
         onTyping={sendTyping}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
+        onOpenPoll={() => setShowPoll(true)}
+        onOpenSchedule={() => setShowSchedule(true)}
       />
 
-      {/* Bill split dialog for group chats */}
+      {/* Dialogs */}
       {chat.isGroup && (
         <BillSplitDialog
           open={showBillSplit}
@@ -244,6 +277,8 @@ export function ChatWindow({ chat }: ChatWindowProps) {
           members={chat.members}
         />
       )}
+      <PollDialog open={showPoll} onOpenChange={setShowPoll} chatId={chat.id} />
+      <ScheduleMessageDialog open={showSchedule} onOpenChange={setShowSchedule} chatId={chat.id} />
     </div>
   );
 }
