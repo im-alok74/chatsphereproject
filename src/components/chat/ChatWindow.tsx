@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMessages } from "@/hooks/useMessages";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useReactions } from "@/hooks/useReactions";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
+import { MessageSearch } from "./MessageSearch";
+import { TypingIndicator } from "./TypingIndicator";
 import { BillSplitDialog } from "./BillSplitDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageCircle, Users, Receipt, Phone, Video, MoreVertical } from "lucide-react";
+import { MessageCircle, Users, Receipt, Phone, Video, Search } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import type { ChatWithDetails } from "@/hooks/useChats";
 import chatSphereLogo from "@/assets/chatsphere-logo.png";
@@ -17,12 +22,16 @@ interface ChatWindowProps {
 export function ChatWindow({ chat }: ChatWindowProps) {
   const { user } = useAuth();
   const { messages, loading, sendMessage, sendImage } = useMessages(chat?.id ?? null);
+  const { typingUsers, sendTyping } = useTypingIndicator(chat?.id ?? null);
+  const { toggleReaction, getReactionsForMessage } = useReactions(chat?.id ?? null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showBillSplit, setShowBillSplit] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ id: string; content: string | null; senderName: string } | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, typingUsers]);
 
   // Empty state
   if (!chat) {
@@ -31,7 +40,7 @@ export function ChatWindow({ chat }: ChatWindowProps) {
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="relative">
             <img src={chatSphereLogo} alt="" className="h-20 w-20 opacity-30" />
-            <div className="absolute inset-0 animate-pulse-glow rounded-full bg-primary/10 blur-xl" />
+            <div className="absolute inset-0 animate-pulse rounded-full bg-primary/10 blur-xl" />
           </div>
           <div>
             <h2 className="font-display text-xl font-bold text-foreground">
@@ -53,8 +62,42 @@ export function ChatWindow({ chat }: ChatWindowProps) {
     ? `${chat.members.length} members`
     : (chat.otherUser?.is_online ? "Active now" : "Offline");
 
-  // Find sender profile for group messages
   const getSenderProfile = (senderId: string) => chat.members.find((m) => m.user_id === senderId);
+
+  const handleSendMessage = (content: string) => {
+    if (replyTo) {
+      // Send with reply - we'll insert directly to include reply_to_id
+      if (!chat?.id || !user) return;
+      supabase.from("messages").insert({
+        chat_id: chat.id,
+        sender_id: user.id,
+        content: content.trim(),
+        reply_to_id: replyTo.id,
+      }).then();
+      setReplyTo(null);
+    } else {
+      sendMessage(content);
+    }
+  };
+
+  const handleDelete = async (messageId: string) => {
+    await supabase.from("messages").delete().eq("id", messageId);
+  };
+
+  const handleReply = (msg: Tables<"messages">) => {
+    const sender = getSenderProfile(msg.sender_id);
+    setReplyTo({
+      id: msg.id,
+      content: msg.content,
+      senderName: sender?.username || (msg.sender_id === user?.id ? "You" : "Unknown"),
+    });
+  };
+
+  // Find reply-to messages
+  const getReplyToMessage = (replyToId: string | null) => {
+    if (!replyToId) return null;
+    return messages.find((m) => m.id === replyToId) ?? null;
+  };
 
   return (
     <div className="flex h-full flex-1 flex-col bg-background">
@@ -75,9 +118,17 @@ export function ChatWindow({ chat }: ChatWindowProps) {
           <div>
             <p className="text-sm font-semibold text-foreground">{displayName}</p>
             <p className="text-[11px] text-muted-foreground">
-              {subtitle}
-              {chat.isGroup && (
-                <> · {chat.members.filter((m) => m.is_online).length} online</>
+              {typingUsers.length > 0 ? (
+                <span className="text-primary italic">
+                  {typingUsers.length === 1 ? `${typingUsers[0]} is typing...` : "Several people typing..."}
+                </span>
+              ) : (
+                <>
+                  {subtitle}
+                  {chat.isGroup && (
+                    <> · {chat.members.filter((m) => m.is_online).length} online</>
+                  )}
+                </>
               )}
             </p>
           </div>
@@ -85,6 +136,13 @@ export function ChatWindow({ chat }: ChatWindowProps) {
 
         {/* Header actions */}
         <div className="flex gap-1">
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className={`rounded-lg p-2 transition-colors ${showSearch ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+            title="Search messages"
+          >
+            <Search className="h-4 w-4" />
+          </button>
           {chat.isGroup && (
             <button
               onClick={() => setShowBillSplit(true)}
@@ -102,6 +160,20 @@ export function ChatWindow({ chat }: ChatWindowProps) {
           </button>
         </div>
       </div>
+
+      {/* Search bar */}
+      {showSearch && (
+        <MessageSearch
+          chatId={chat.id}
+          onSelectMessage={(id) => {
+            const el = document.getElementById(`msg-${id}`);
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+            el?.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+            setTimeout(() => el?.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background"), 2000);
+          }}
+          onClose={() => setShowSearch(false)}
+        />
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -123,23 +195,45 @@ export function ChatWindow({ chat }: ChatWindowProps) {
               const isMine = msg.sender_id === user?.id;
               const senderProfile = chat.isGroup && !isMine ? getSenderProfile(msg.sender_id) : null;
               const showSender = chat.isGroup && !isMine && (i === 0 || messages[i - 1].sender_id !== msg.sender_id);
+              const replyToMsg = getReplyToMessage((msg as any).reply_to_id);
+              const replyToSender = replyToMsg ? getSenderProfile(replyToMsg.sender_id) : null;
+
               return (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isMine={isMine}
-                  senderName={showSender ? senderProfile?.username : undefined}
-                  senderAvatar={showSender ? senderProfile?.avatar_url : undefined}
-                />
+                <div key={msg.id} id={`msg-${msg.id}`} className="transition-all duration-300 rounded-lg">
+                  <MessageBubble
+                    message={msg}
+                    isMine={isMine}
+                    senderName={showSender ? senderProfile?.username : undefined}
+                    senderAvatar={showSender ? senderProfile?.avatar_url : undefined}
+                    reactions={getReactionsForMessage(msg.id)}
+                    onReact={(emoji) => toggleReaction(msg.id, emoji)}
+                    onReply={() => handleReply(msg)}
+                    onDelete={isMine ? () => handleDelete(msg.id) : undefined}
+                    replyToMessage={replyToMsg}
+                    replyToSenderName={
+                      replyToMsg?.sender_id === user?.id
+                        ? "You"
+                        : replyToSender?.username
+                    }
+                    currentUserId={user?.id}
+                  />
+                </div>
               );
             })}
           </>
         )}
+        <TypingIndicator usernames={typingUsers} />
         <div ref={bottomRef} />
       </div>
 
       {/* Message input */}
-      <MessageInput onSendMessage={sendMessage} onSendImage={sendImage} />
+      <MessageInput
+        onSendMessage={handleSendMessage}
+        onSendImage={sendImage}
+        onTyping={sendTyping}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
+      />
 
       {/* Bill split dialog for group chats */}
       {chat.isGroup && (
