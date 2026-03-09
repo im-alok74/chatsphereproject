@@ -114,48 +114,70 @@ export function useChats() {
   const createOrFindChat = async (otherUserId: string): Promise<string | null> => {
     if (!user) return null;
 
-    const { data: myChats } = await supabase
-      .from("chat_members")
-      .select("chat_id")
-      .eq("user_id", user.id);
+    try {
+      // Try to find existing 1-on-1 chat
+      const { data: myChats, error: myChatsError } = await supabase
+        .from("chat_members")
+        .select("chat_id")
+        .eq("user_id", user.id);
 
-    if (myChats) {
-      for (const membership of myChats) {
-        // Check if it's a 1-on-1 with this user
-        const { data: chatInfo } = await supabase
-          .from("chats")
-          .select("is_group")
-          .eq("id", membership.chat_id)
-          .single();
-        
-        if (chatInfo?.is_group) continue;
+      if (!myChatsError && myChats) {
+        for (const membership of myChats) {
+          const { data: chatInfo } = await supabase
+            .from("chats")
+            .select("is_group")
+            .eq("id", membership.chat_id)
+            .maybeSingle();
+          
+          if (!chatInfo || chatInfo.is_group) continue;
 
-        const { data: otherMember } = await supabase
-          .from("chat_members")
-          .select("user_id")
-          .eq("chat_id", membership.chat_id)
-          .eq("user_id", otherUserId)
-          .single();
+          const { data: otherMember } = await supabase
+            .from("chat_members")
+            .select("user_id")
+            .eq("chat_id", membership.chat_id)
+            .eq("user_id", otherUserId)
+            .maybeSingle();
 
-        if (otherMember) return membership.chat_id;
+          if (otherMember) return membership.chat_id;
+        }
       }
+
+      // Create new chat — insert chat first, then add members
+      const { data: newChat, error: chatError } = await supabase
+        .from("chats")
+        .insert({ is_group: false })
+        .select()
+        .single();
+
+      if (chatError || !newChat) {
+        console.error("Failed to create chat:", chatError);
+        return null;
+      }
+
+      // Insert current user first (so they become a member), then the other user
+      const { error: memberError1 } = await supabase
+        .from("chat_members")
+        .insert({ chat_id: newChat.id, user_id: user.id });
+
+      if (memberError1) {
+        console.error("Failed to add self to chat:", memberError1);
+        return null;
+      }
+
+      const { error: memberError2 } = await supabase
+        .from("chat_members")
+        .insert({ chat_id: newChat.id, user_id: otherUserId });
+
+      if (memberError2) {
+        console.error("Failed to add other user to chat:", memberError2);
+      }
+
+      await fetchChats();
+      return newChat.id;
+    } catch (err) {
+      console.error("createOrFindChat error:", err);
+      return null;
     }
-
-    const { data: newChat, error: chatError } = await supabase
-      .from("chats")
-      .insert({ is_group: false })
-      .select()
-      .single();
-
-    if (chatError || !newChat) return null;
-
-    await supabase.from("chat_members").insert([
-      { chat_id: newChat.id, user_id: user.id },
-      { chat_id: newChat.id, user_id: otherUserId },
-    ]);
-
-    await fetchChats();
-    return newChat.id;
   };
 
   // Create group chat
