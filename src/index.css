@@ -36,6 +36,15 @@
 
     --radius: 0.75rem;
 
+    /* Auth page tokens */
+    --auth-bg: 220 20% 4%;
+    --auth-card: 220 15% 8%;
+    --auth-card-border: 220 15% 15%;
+    --auth-input-bg: 220 15% 12%;
+    --auth-input-border: 220 15% 20%;
+    --auth-glow: 190 100% 50%;
+    --gradient-brand: linear-gradient(135deg, hsl(190, 100%, 50%), hsl(210, 100%, 55%), hsl(230, 80%, 60%));
+
     /* Chat-specific tokens */
     --chat-bubble-sent: 204 94% 52%;
     --chat-bubble-sent-foreground: 0 0% 100%;
