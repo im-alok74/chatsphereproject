@@ -1,12 +1,16 @@
 import { useState, useRef } from "react";
-import { Send, Image as ImageIcon, Smile, Paperclip } from "lucide-react";
+import { Send, Image as ImageIcon } from "lucide-react";
+import { EmojiPicker } from "./EmojiPicker";
 
 interface MessageInputProps {
   onSendMessage: (content: string) => void;
   onSendImage: (file: File) => void;
+  onTyping?: (isTyping: boolean) => void;
+  replyTo?: { id: string; content: string | null; senderName: string } | null;
+  onCancelReply?: () => void;
 }
 
-export function MessageInput({ onSendMessage, onSendImage }: MessageInputProps) {
+export function MessageInput({ onSendMessage, onSendImage, onTyping, replyTo, onCancelReply }: MessageInputProps) {
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -15,6 +19,7 @@ export function MessageInput({ onSendMessage, onSendImage }: MessageInputProps) 
     if (!text.trim()) return;
     onSendMessage(text);
     setText("");
+    onTyping?.(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -22,6 +27,11 @@ export function MessageInput({ onSendMessage, onSendImage }: MessageInputProps) 
       e.preventDefault();
       handleSubmit(e);
     }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+    onTyping?.(e.target.value.length > 0);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,8 +42,26 @@ export function MessageInput({ onSendMessage, onSendImage }: MessageInputProps) 
     }
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    setText((prev) => prev + emoji);
+  };
+
   return (
     <div className="border-t border-border bg-chat-header px-3 py-2.5">
+      {/* Reply preview */}
+      {replyTo && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg bg-accent px-3 py-2 animate-fade-in">
+          <div className="h-full w-0.5 rounded-full bg-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-primary">{replyTo.senderName}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {replyTo.content || "📷 Photo"}
+            </p>
+          </div>
+          <button onClick={onCancelReply} className="shrink-0 text-xs text-muted-foreground hover:text-foreground">✕</button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
         <input
           ref={fileInputRef}
@@ -52,13 +80,14 @@ export function MessageInput({ onSendMessage, onSendImage }: MessageInputProps) 
           >
             <ImageIcon className="h-5 w-5" />
           </button>
+          <EmojiPicker onSelect={handleEmojiSelect} />
         </div>
 
         {/* Text input */}
         <div className="flex-1">
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={1}
