@@ -8,9 +8,7 @@ export default {
     container: {
       center: true,
       padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      screens: { "2xl": "1400px" },
     },
     extend: {
       fontFamily: {
@@ -58,9 +56,15 @@ export default {
           "bubble-received-foreground": "hsl(var(--chat-bubble-received-foreground))",
           sidebar: "hsl(var(--chat-sidebar))",
           "sidebar-border": "hsl(var(--chat-sidebar-border))",
+          header: "hsl(var(--chat-header))",
         },
         online: "hsl(var(--online-indicator))",
         typing: "hsl(var(--typing-indicator))",
+        bill: {
+          green: "hsl(var(--bill-green))",
+          orange: "hsl(var(--bill-orange))",
+          red: "hsl(var(--bill-red))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -94,12 +98,17 @@ export default {
           from: { opacity: "0", transform: "translateY(4px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "0.4" },
+          "50%": { opacity: "0.8" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "typing-bounce": "typing-bounce 1.4s infinite ease-in-out",
         "fade-in": "fade-in 0.2s ease-out",
+        "pulse-glow": "pulse-glow 2s infinite ease-in-out",
       },
     },
   },
