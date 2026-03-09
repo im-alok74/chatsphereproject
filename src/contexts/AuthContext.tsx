@@ -11,7 +11,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, username: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: { username?: string; avatar_url?: string }) => Promise<void>;
+  updateProfile: (updates: { username?: string; avatar_url?: string; bio?: string; status_message?: string }) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
-  const updateProfile = async (updates: { username?: string; avatar_url?: string }) => {
+  const updateProfile = async (updates: { username?: string; avatar_url?: string; bio?: string; status_message?: string }) => {
     if (!user) return;
     await supabase.from("profiles").update(updates).eq("user_id", user.id);
     await fetchProfile(user.id);

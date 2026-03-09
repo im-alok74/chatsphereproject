@@ -232,30 +232,36 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string
           created_at: string
           id: string
           is_online: boolean
           last_seen: string | null
+          status_message: string
           updated_at: string
           user_id: string
           username: string
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string
           created_at?: string
           id?: string
           is_online?: boolean
           last_seen?: string | null
+          status_message?: string
           updated_at?: string
           user_id: string
           username: string
         }
         Update: {
           avatar_url?: string | null
+          bio?: string
           created_at?: string
           id?: string
           is_online?: boolean
           last_seen?: string | null
+          status_message?: string
           updated_at?: string
           user_id?: string
           username?: string

@@ -156,7 +156,7 @@ export function ChatSidebar({ chats, activeChatId, onSelectChat, onNewChat, onNe
             </Avatar>
             <div className="text-left">
               <p className="text-xs font-semibold text-foreground">{profile?.username}</p>
-              <p className="text-[10px] text-muted-foreground">Online</p>
+              <p className="text-[10px] text-muted-foreground">{(profile as any)?.status_message || "Online"}</p>
             </div>
           </button>
           <div className="flex gap-0.5">
