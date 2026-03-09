@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
-import { Send, Image as ImageIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Send, Image as ImageIcon, Smile, Paperclip } from "lucide-react";
 
 interface MessageInputProps {
   onSendMessage: (content: string) => void;
@@ -34,9 +33,8 @@ export function MessageInput({ onSendMessage, onSendImage }: MessageInputProps) 
   };
 
   return (
-    <div className="border-t border-border bg-background px-4 py-3">
+    <div className="border-t border-border bg-chat-header px-3 py-2.5">
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
-        {/* Image upload */}
         <input
           ref={fileInputRef}
           type="file"
@@ -44,35 +42,39 @@ export function MessageInput({ onSendMessage, onSendImage }: MessageInputProps) 
           className="hidden"
           onChange={handleFileChange}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 shrink-0"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <ImageIcon className="h-5 w-5 text-muted-foreground" />
-        </Button>
+
+        {/* Action buttons */}
+        <div className="flex gap-0.5">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <ImageIcon className="h-5 w-5" />
+          </button>
+        </div>
 
         {/* Text input */}
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Message..."
-          rows={1}
-          className="max-h-32 min-h-[36px] flex-1 resize-none rounded-2xl border border-input bg-secondary px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        <div className="flex-1">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            rows={1}
+            className="max-h-28 min-h-[38px] w-full resize-none rounded-2xl border border-border bg-secondary px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:ring-1 focus:ring-primary/30"
+          />
+        </div>
 
-        {/* Send button */}
-        <Button
+        {/* Send */}
+        <button
           type="submit"
-          size="icon"
-          className="h-9 w-9 shrink-0 rounded-full"
           disabled={!text.trim()}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-30"
+          style={{ background: text.trim() ? "var(--gradient-brand)" : undefined }}
         >
-          <Send className="h-4 w-4" />
-        </Button>
+          <Send className={`h-4 w-4 ${text.trim() ? "text-primary-foreground" : "text-muted-foreground"}`} />
+        </button>
       </form>
     </div>
   );

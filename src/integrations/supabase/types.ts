@@ -14,6 +14,85 @@ export type Database = {
   }
   public: {
     Tables: {
+      bill_split_shares: {
+        Row: {
+          amount: number
+          bill_id: string
+          id: string
+          paid: boolean
+          paid_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          bill_id: string
+          id?: string
+          paid?: boolean
+          paid_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          bill_id?: string
+          id?: string
+          paid?: boolean
+          paid_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_split_shares_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bill_splits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bill_splits: {
+        Row: {
+          chat_id: string
+          created_at: string
+          created_by: string
+          currency: string
+          id: string
+          status: string
+          title: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          created_by: string
+          currency?: string
+          id?: string
+          status?: string
+          title: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          id?: string
+          status?: string
+          title?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_splits_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_members: {
         Row: {
           chat_id: string
@@ -45,18 +124,27 @@ export type Database = {
       }
       chats: {
         Row: {
+          avatar_url: string | null
           created_at: string
           id: string
+          is_group: boolean
+          name: string | null
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           id?: string
+          is_group?: boolean
+          name?: string | null
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           id?: string
+          is_group?: boolean
+          name?: string | null
           updated_at?: string
         }
         Relationships: []

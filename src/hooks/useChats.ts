@@ -5,7 +5,11 @@ import type { Tables } from "@/integrations/supabase/types";
 
 export interface ChatWithDetails {
   id: string;
-  otherUser: Tables<"profiles">;
+  isGroup: boolean;
+  name: string | null;
+  avatarUrl: string | null;
+  members: Tables<"profiles">[];
+  otherUser: Tables<"profiles"> | null; // For 1-on-1 chats
   lastMessage: Tables<"messages"> | null;
   unreadCount: number;
 }
@@ -18,7 +22,6 @@ export function useChats() {
   const fetchChats = useCallback(async () => {
     if (!user) return;
 
-    // Get all chat IDs user belongs to
     const { data: memberships } = await supabase
       .from("chat_members")
       .select("chat_id")
@@ -31,32 +34,34 @@ export function useChats() {
     }
 
     const chatIds = memberships.map((m) => m.chat_id);
-
-    // For each chat, get the other member's profile and latest message
     const chatDetails: ChatWithDetails[] = [];
 
     for (const chatId of chatIds) {
-      // Get other member
-      const { data: members } = await supabase
-        .from("chat_members")
-        .select("user_id")
-        .eq("chat_id", chatId)
-        .neq("user_id", user.id);
-
-      if (!members?.length) continue;
-
-      const otherUserId = members[0].user_id;
-
-      // Get other user's profile
-      const { data: profile } = await supabase
-        .from("profiles")
+      // Fetch chat info
+      const { data: chatInfo } = await supabase
+        .from("chats")
         .select("*")
-        .eq("user_id", otherUserId)
+        .eq("id", chatId)
         .single();
 
-      if (!profile) continue;
+      if (!chatInfo) continue;
 
-      // Get latest message
+      // Get all members' profiles
+      const { data: memberRows } = await supabase
+        .from("chat_members")
+        .select("user_id")
+        .eq("chat_id", chatId);
+
+      const memberIds = memberRows?.map((m) => m.user_id) ?? [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("user_id", memberIds);
+
+      const members = profiles ?? [];
+      const otherMembers = members.filter((p) => p.user_id !== user.id);
+
+      // Latest message
       const { data: messages } = await supabase
         .from("messages")
         .select("*")
@@ -64,7 +69,7 @@ export function useChats() {
         .order("created_at", { ascending: false })
         .limit(1);
 
-      // Count unread messages
+      // Unread count
       const { count } = await supabase
         .from("messages")
         .select("*", { count: "exact", head: true })
@@ -74,13 +79,16 @@ export function useChats() {
 
       chatDetails.push({
         id: chatId,
-        otherUser: profile,
+        isGroup: chatInfo.is_group,
+        name: chatInfo.name,
+        avatarUrl: chatInfo.avatar_url,
+        members,
+        otherUser: !chatInfo.is_group && otherMembers.length > 0 ? otherMembers[0] : null,
         lastMessage: messages?.[0] ?? null,
         unreadCount: count ?? 0,
       });
     }
 
-    // Sort by latest message time
     chatDetails.sort((a, b) => {
       const aTime = a.lastMessage?.created_at ?? "";
       const bTime = b.lastMessage?.created_at ?? "";
@@ -91,35 +99,21 @@ export function useChats() {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    fetchChats();
-  }, [fetchChats]);
+  useEffect(() => { fetchChats(); }, [fetchChats]);
 
-  // Subscribe to new messages to refresh chat list
   useEffect(() => {
     if (!user) return;
-
     const channel = supabase
       .channel("chat-list-updates")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        () => {
-          fetchChats();
-        }
-      )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => fetchChats())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user, fetchChats]);
 
-  // Create or find existing chat with another user
+  // Create 1-on-1 chat
   const createOrFindChat = async (otherUserId: string): Promise<string | null> => {
     if (!user) return null;
 
-    // Check if chat already exists between these two users
     const { data: myChats } = await supabase
       .from("chat_members")
       .select("chat_id")
@@ -127,6 +121,15 @@ export function useChats() {
 
     if (myChats) {
       for (const membership of myChats) {
+        // Check if it's a 1-on-1 with this user
+        const { data: chatInfo } = await supabase
+          .from("chats")
+          .select("is_group")
+          .eq("id", membership.chat_id)
+          .single();
+        
+        if (chatInfo?.is_group) continue;
+
         const { data: otherMember } = await supabase
           .from("chat_members")
           .select("user_id")
@@ -134,35 +137,47 @@ export function useChats() {
           .eq("user_id", otherUserId)
           .single();
 
-        if (otherMember) {
-          return membership.chat_id;
-        }
+        if (otherMember) return membership.chat_id;
       }
     }
 
-    // Create new chat - use RPC or direct insert
-    // First create the chat
     const { data: newChat, error: chatError } = await supabase
       .from("chats")
-      .insert({})
+      .insert({ is_group: false })
       .select()
       .single();
 
     if (chatError || !newChat) return null;
 
-    // Add both members
-    const { error: memberError } = await supabase
-      .from("chat_members")
-      .insert([
-        { chat_id: newChat.id, user_id: user.id },
-        { chat_id: newChat.id, user_id: otherUserId },
-      ]);
-
-    if (memberError) return null;
+    await supabase.from("chat_members").insert([
+      { chat_id: newChat.id, user_id: user.id },
+      { chat_id: newChat.id, user_id: otherUserId },
+    ]);
 
     await fetchChats();
     return newChat.id;
   };
 
-  return { chats, loading, fetchChats, createOrFindChat };
+  // Create group chat
+  const createGroupChat = async (name: string, memberUserIds: string[]): Promise<string | null> => {
+    if (!user) return null;
+
+    const { data: newChat, error } = await supabase
+      .from("chats")
+      .insert({ is_group: true, name })
+      .select()
+      .single();
+
+    if (error || !newChat) return null;
+
+    const allMembers = [user.id, ...memberUserIds];
+    await supabase.from("chat_members").insert(
+      allMembers.map((uid) => ({ chat_id: newChat.id, user_id: uid }))
+    );
+
+    await fetchChats();
+    return newChat.id;
+  };
+
+  return { chats, loading, fetchChats, createOrFindChat, createGroupChat };
 }
