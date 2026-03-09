@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
-import { Send, Image as ImageIcon, Smile } from "lucide-react";
+import { Send, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import data from "@emoji-mart/data";
 
 interface MessageInputProps {
   onSendMessage: (content: string) => void;
