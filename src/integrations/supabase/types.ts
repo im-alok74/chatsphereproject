@@ -229,6 +229,118 @@ export type Database = {
           },
         ]
       }
+      pinned_messages: {
+        Row: {
+          chat_id: string
+          id: string
+          message_id: string
+          pinned_at: string
+          pinned_by: string
+        }
+        Insert: {
+          chat_id: string
+          id?: string
+          message_id: string
+          pinned_at?: string
+          pinned_by: string
+        }
+        Update: {
+          chat_id?: string
+          id?: string
+          message_id?: string
+          pinned_at?: string
+          pinned_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pinned_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pinned_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poll_votes: {
+        Row: {
+          created_at: string
+          id: string
+          option_index: number
+          poll_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          option_index: number
+          poll_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          option_index?: number
+          poll_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_votes_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polls: {
+        Row: {
+          chat_id: string
+          closes_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          is_anonymous: boolean
+          options: Json
+          question: string
+        }
+        Insert: {
+          chat_id: string
+          closes_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          is_anonymous?: boolean
+          options?: Json
+          question: string
+        }
+        Update: {
+          chat_id?: string
+          closes_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_anonymous?: boolean
+          options?: Json
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polls_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -267,6 +379,44 @@ export type Database = {
           username?: string
         }
         Relationships: []
+      }
+      scheduled_messages: {
+        Row: {
+          chat_id: string
+          content: string
+          created_at: string
+          id: string
+          scheduled_at: string
+          sender_id: string
+          sent: boolean
+        }
+        Insert: {
+          chat_id: string
+          content: string
+          created_at?: string
+          id?: string
+          scheduled_at: string
+          sender_id: string
+          sent?: boolean
+        }
+        Update: {
+          chat_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          scheduled_at?: string
+          sender_id?: string
+          sent?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
