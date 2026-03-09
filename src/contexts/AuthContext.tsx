@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
-  const updateProfile = async (updates: { username?: string; avatar_url?: string }) => {
+  const updateProfile = async (updates: { username?: string; avatar_url?: string; bio?: string; status_message?: string }) => {
     if (!user) return;
     await supabase.from("profiles").update(updates).eq("user_id", user.id);
     await fetchProfile(user.id);
