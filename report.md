@@ -28,7 +28,7 @@
 | Vaul | ^0.9.9 | Drawer component |
 | React Resizable Panels | ^2.1.9 | Resizable panel layouts |
 
-## Backend (Lovable Cloud)
+## Backend 
 
 | Technology | Purpose |
 |---|---|
